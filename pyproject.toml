@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fic-mcp"
+version = "0.1.0"
+description = "Server MCP completo per Fatture in Cloud (API v2) con tokenizzazione dei dati personali"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary - Intarmour" }
+authors = [{ name = "Intarmour" }]
+dependencies = [
+    "mcp>=2.3,<3",   # porta con sé httpx2, pydantic, starlette, uvicorn
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+fic-mcp = "fic_mcp.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
