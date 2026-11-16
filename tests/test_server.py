@@ -111,7 +111,8 @@ def test_create_invoice_dry_run_then_create(tmp_path):
     assert preview["eseguito"] is False
     a = preview["anteprima"]
     assert a["imponibile"] == 6000 and a["rivalsa"] == 240 and a["iva"] == 1372.8
-    assert a["ritenuta"] == 1200 and a["netto_a_pagare"] == 6412.8 and a["scadenza"] == "2026-12-15"
+    assert a["ritenuta"] == 1248 and a["netto_a_pagare"] == 6364.8 and a["scadenza"] == "2026-12-15"
+    assert a["totale_documento"] == 7612.8
     assert not mock.created
 
     done = payload(call(server, "fic_create_invoice", {**args, "dry_run": False}))
@@ -119,10 +120,18 @@ def test_create_invoice_dry_run_then_create(tmp_path):
     doc = mock.created[0]
     assert doc["e_invoice"] is True and doc["ei_data"]["payment_method"] == "MP05"
     assert doc["items_list"][0]["vat"] == {"id": 0}
-    assert doc["payments_list"][0]["amount"] == 6412.8
+    assert doc["payments_list"][0]["amount"] == 6364.8
     assert doc["entity"]["ei_code"] == "M5UXCR1"
     audit = [json.loads(line) for line in settings.audit_log.read_text().splitlines()]
     assert audit[-1]["tool"] == "fic_create_invoice" and audit[-1]["result_id"] == 555
+
+
+def test_create_invoice_without_withholding(tmp_path):
+    # Senza ritenuta richiesta FIC non deve applicare quella predefinita dell'azienda
+    server, _, _, _ = make(tmp_path)
+    args = {"client_id": 10, "lines": [{"name": "Consulenza", "qty": 2, "net_price": 100, "vat_rate": 22}]}
+    a = payload(call(server, "fic_create_invoice", args))["anteprima"]
+    assert a["ritenuta"] == 0 and a["totale_documento"] == a["netto_a_pagare"] == 244
 
 
 def test_zero_rate_requires_vat_id(tmp_path):

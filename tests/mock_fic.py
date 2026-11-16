@@ -107,11 +107,13 @@ class MockFic:
             net = sum(i["qty"] * i["net_price"] for i in d["items_list"])
             riv = round(net * d.get("rivalsa", 0) / 100, 2)
             vat = round((net + riv) * 0.22, 2)
-            wht = round(net * d.get("withholding_tax", 0) / 100, 2)
-            gross = net + riv + vat
+            # Come FIC: senza withholding_tax applica il default dell'azienda (20%) sull'imponibile con
+            # rivalsa, e amount_gross è già al netto della ritenuta.
+            wht = round((net + riv) * d.get("withholding_tax", 20) / 100, 2)
+            gross = round(net + riv + vat - wht, 2)
             return _json(200, {"data": {"amount_net": net, "amount_rivalsa": riv, "amount_cassa": 0,
                                         "amount_vat": vat, "amount_gross": gross,
-                                        "amount_withholding_tax": wht, "amount_due": round(gross - wht, 2)}})
+                                        "amount_withholding_tax": wht, "amount_due": gross}})
         if p == "/issued_documents" and m == "POST":
             self.created.append(body["data"])
             return _json(200, {"data": {"id": 555, "number": 42, "url": "https://fic/pdf/555", **body["data"]}})

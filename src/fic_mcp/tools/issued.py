@@ -276,13 +276,9 @@ def register(reg: Registrar) -> None:
         is_fiscal = doc_type in ("invoice", "credit_note")
         data: dict[str, Any] = {"type": doc_type, "entity": entity, "date": d.isoformat(), "items_list": items,
                                 "use_gross_prices": False}
-        if rivalsa_pct:
-            data["rivalsa"] = rivalsa_pct
-        if cassa_pct:
-            data["cassa"] = cassa_pct
-        if withholding_pct:
-            data["withholding_tax"] = withholding_pct
-            data["withholding_tax_taxable"] = withholding_taxable_pct
+        # Sempre espliciti, anche a 0: se mancano FIC applica i default dell'azienda (es. ritenuta 20%).
+        data.update({"rivalsa": rivalsa_pct, "cassa": cassa_pct, "withholding_tax": withholding_pct,
+                     "withholding_tax_taxable": withholding_taxable_pct})
         for key, value in (("subject", subject), ("visible_subject", visible_subject), ("notes", notes)):
             if value:
                 data[key] = value
@@ -302,7 +298,9 @@ def register(reg: Registrar) -> None:
             "cliente": entity.get("name"), "tipo": doc_type, "data": d.isoformat(), "scadenza": due.isoformat(),
             "imponibile": r2(totals.get("amount_net")), "rivalsa": r2(totals.get("amount_rivalsa")),
             "cassa": r2(totals.get("amount_cassa")), "iva": r2(totals.get("amount_vat")),
-            "totale_documento": r2(totals.get("amount_gross")),
+            # amount_gross di FIC è già al netto delle ritenute
+            "totale_documento": r2((totals.get("amount_gross") or 0) + (totals.get("amount_withholding_tax") or 0)
+                                   + (totals.get("amount_other_withholding_tax") or 0)),
             "ritenuta": r2(totals.get("amount_withholding_tax")), "netto_a_pagare": amount_due,
             "fattura_elettronica": bool(data.get("e_invoice")),
         }
