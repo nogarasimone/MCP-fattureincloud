@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vulnerabilità di sicurezza
+    url: https://github.com/nogarasimone/MCP-fattureincloud/security/advisories/new
+    about: Segnala in privato, non con una issue pubblica.
+  - name: Problemi con l'API o l'account Fatture in Cloud
+    url: https://developers.fattureincloud.it/
+    about: Per problemi dell'API o del tuo account rivolgiti a Fatture in Cloud.

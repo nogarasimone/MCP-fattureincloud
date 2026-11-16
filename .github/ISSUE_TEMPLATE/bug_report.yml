@@ -1,0 +1,68 @@
+name: Segnala un bug
+description: Qualcosa non funziona come descritto nel README
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie della segnalazione. **Non incollare token, P.IVA, codici fiscali, nomi di clienti
+        o contenuti di fatture reali**: usa dati di esempio e oscura i log.
+        Per una vulnerabilità di sicurezza non aprire una issue: segui SECURITY.md.
+  - type: textarea
+    id: descrizione
+    attributes:
+      label: Cosa succede
+      description: Descrivi il problema e cosa ti aspettavi invece.
+    validations:
+      required: true
+  - type: textarea
+    id: passi
+    attributes:
+      label: Come riprodurlo
+      description: Comando o richiesta al modello, tool chiamato e argomenti (con dati di esempio).
+      placeholder: |
+        1. fic-mcp serve --transport stdio
+        2. Richiesta: «Quanto ho fatturato nel 2026?»
+        3. Tool fic_revenue_summary(year=2026) → errore ...
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Errore o log
+      description: Messaggio d'errore o righe di log rilevanti, già ripulite da dati personali.
+      render: text
+  - type: input
+    id: versione
+    attributes:
+      label: Versione di fic-mcp
+      description: Output di `fic-mcp --version`
+    validations:
+      required: true
+  - type: dropdown
+    id: trasporto
+    attributes:
+      label: Trasporto
+      options:
+        - stdio (Claude Desktop / Claude Code / altro client locale)
+        - HTTP (self-hosting)
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client MCP e sistema operativo
+      placeholder: Claude Desktop 1.x su macOS 26, Python 3.12
+  - type: textarea
+    id: config
+    attributes:
+      label: Configurazione
+      description: Solo i valori non segreti (FIC_READ_ONLY, FIC_PRIVACY_MODE, FIC_TOOLSETS...). Mai FIC_ACCESS_TOKEN, FIC_CLIENT_SECRET o FIC_MCP_HTTP_TOKEN.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Verifica
+      options:
+        - label: Ho controllato che la segnalazione non contenga token né dati personali o aziendali reali
+          required: true

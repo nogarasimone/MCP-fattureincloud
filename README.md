@@ -1,5 +1,8 @@
 # fic-mcp — server MCP per Fatture in Cloud
 
+[![Licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-%E2%89%A53.11-blue.svg)
+
 Server MCP (Model Context Protocol) che dà a Claude, o a qualsiasi client MCP, accesso completo
 all'API v2 di Fatture in Cloud: anagrafiche, prodotti, documenti emessi, fattura elettronica/SdI,
 spese e fatture passive, F24, prima nota, corrispettivi, archivio, impostazioni, webhook, più
@@ -81,11 +84,110 @@ claude mcp add fatture-in-cloud -e FIC_ACCESS_TOKEN=a/xxxx -e FIC_READ_ONLY=true
 **Remoto (Streamable HTTP)**, per un gateway o un client web:
 
 ```bash
-FIC_MCP_HTTP_TOKEN=$(openssl rand -hex 32) fic-mcp serve --transport http --host 0.0.0.0 --port 8000
-# endpoint: http://host:8000/mcp  —  header: Authorization: Bearer <FIC_MCP_HTTP_TOKEN>
+FIC_MCP_HTTP_TOKEN=$(openssl rand -hex 32) fic-mcp serve --transport http --port 8000
+# endpoint: http://127.0.0.1:8000/mcp  —  header: Authorization: Bearer <FIC_MCP_HTTP_TOKEN>
 ```
 
-In produzione mettilo dietro HTTPS (reverse proxy) e non esporlo senza bearer.
+Claude Code si collega con un header fisso:
+
+```bash
+claude mcp add --transport http fatture-in-cloud https://mcp.tuodominio.it/mcp \
+  --header "Authorization: Bearer <FIC_MCP_HTTP_TOKEN>"
+```
+
+I connettori personalizzati di Claude.ai / Claude Desktop richiedono OAuth o nessuna
+autenticazione, non un bearer fisso: per quelli usa stdio in locale. Per il deploy su server vedi
+[Self-hosting](#self-hosting).
+
+## Self-hosting
+
+Un'istanza serve **un solo account** Fatture in Cloud con **un solo bearer**: per più clienti
+avvia più istanze, ognuna con il suo `.env`, la sua porta e il suo token.
+
+**1. Installazione e configurazione** (utente di sistema dedicato):
+
+```bash
+sudo useradd --system --create-home --home-dir /var/lib/fic-mcp fic-mcp
+sudo -u fic-mcp pipx install git+https://github.com/nogarasimone/MCP-fattureincloud.git
+sudo install -d -m 700 -o fic-mcp /etc/fic-mcp
+sudo install -m 600 -o fic-mcp .env.example /etc/fic-mcp/.env   # poi compila FIC_* e FIC_MCP_HTTP_TOKEN
+```
+
+**2. Token.** `fic-mcp auth` apre il browser e attende il callback su `localhost`, quindi su un
+server senza interfaccia grafica non funziona così com'è. Usa il token manuale, oppure esegui
+`fic-mcp auth` sul tuo computer e copia `tokens.json` sul server
+(`FIC_TOKEN_FILE=/var/lib/fic-mcp/tokens.json`, permessi 600). Il file deve restare scrivibile:
+il server lo aggiorna quando rinnova l'access token.
+
+**3. Servizio systemd** (`/etc/systemd/system/fic-mcp.service`):
+
+```ini
+[Unit]
+Description=fic-mcp (MCP server Fatture in Cloud)
+After=network-online.target
+
+[Service]
+User=fic-mcp
+ExecStart=/var/lib/fic-mcp/.local/bin/fic-mcp --env-file /etc/fic-mcp/.env serve --transport http --host 127.0.0.1 --port 8000
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/fic-mcp
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now fic-mcp
+```
+
+Con `ProtectSystem=strict` il registro scritture va messo in una cartella scrivibile, ad esempio
+`FIC_AUDIT_LOG=/var/lib/fic-mcp/audit.jsonl`.
+
+**4. Reverse proxy con HTTPS.** Il server ascolta solo su `127.0.0.1`; all'esterno espone il proxy.
+
+Caddy (certificato automatico):
+
+```
+mcp.tuodominio.it {
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+nginx (le risposte sono in streaming: niente buffering):
+
+```nginx
+location /mcp {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_buffering off;
+    proxy_read_timeout 300s;
+}
+```
+
+**5. Verifica.**
+
+```bash
+curl -i https://mcp.tuodominio.it/mcp                                  # atteso: 401
+curl -i -X POST https://mcp.tuodominio.it/mcp \
+  -H "Authorization: Bearer $FIC_MCP_HTTP_TOKEN" \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+```
+
+Se la seconda chiamata risponde 4xx con un errore sull'header `Host`, l'SDK MCP sta applicando la
+protezione DNS rebinding: avvia il server con `--host` uguale al nome pubblico oppure fai passare
+al proxy `Host: 127.0.0.1:8000`.
+
+**Limiti da conoscere:**
+
+- **un solo processo**: niente worker multipli né repliche dietro un bilanciatore. Con
+  `FIC_PRIVACY_MODE=tokenize` la tabella dei segnaposto vive in memoria e si azzera al riavvio;
+- il bearer è l'unica protezione dell'endpoint: lungo (`openssl rand -hex 32`), solo su HTTPS,
+  da ruotare se esce dalla macchina; valuta anche una allowlist IP sul proxy;
+- inizia con `FIC_READ_ONLY=true` anche sul server.
 
 ## Configurazione
 
@@ -213,6 +315,15 @@ Prima dell'uso in scrittura, in sola lettura:
    vedi in FIC;
 4. una prima fattura vera creata in bozza e controllata a video prima di `fic_send_e_invoice`.
 
+## Segnalazioni e contributi
+
+- **Bug e richieste**: apri una [issue](https://github.com/nogarasimone/MCP-fattureincloud/issues/new/choose)
+  usando i modelli proposti. Non incollare token, P.IVA, nomi di clienti o fatture reali: usa
+  dati di esempio e oscura i log.
+- **Vulnerabilità di sicurezza**: non aprire una issue pubblica, segui [SECURITY.md](SECURITY.md).
+- **Pull request**: benvenute; aggiungi un test in `tests/` e verifica che `pytest` passi.
+
 ## Licenza
 
-Rilasciato con licenza [MIT](LICENSE).
+Rilasciato con licenza [MIT](LICENSE). Progetto indipendente, non affiliato a Fatture in Cloud
+né a TeamSystem.

@@ -1,0 +1,20 @@
+name: Proponi un miglioramento
+description: Un nuovo tool, un endpoint FIC non coperto o un'analisi utile
+labels: [enhancement]
+body:
+  - type: textarea
+    id: bisogno
+    attributes:
+      label: Cosa vorresti fare
+      description: Il caso d'uso, ad esempio la richiesta che faresti al modello.
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      description: Tool, parametri o endpoint dell'API v2 di Fatture in Cloud coinvolti, se li conosci.
+  - type: textarea
+    id: alternative
+    attributes:
+      label: Alternative considerate
