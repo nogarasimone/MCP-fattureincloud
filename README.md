@@ -146,6 +146,12 @@ Con `ProtectSystem=strict` il registro scritture va messo in una cartella scrivi
 `FIC_AUDIT_LOG=/var/lib/fic-mcp/audit.jsonl`.
 
 **4. Reverse proxy con HTTPS.** Il server ascolta solo su `127.0.0.1`; all'esterno espone il proxy.
+Per difesa dal DNS rebinding il server accetta solo l'header `Host` di localhost: dichiara il nome
+pubblico nel `.env`, altrimenti le richieste dal proxy ricevono `421 Invalid Host header`:
+
+```bash
+FIC_MCP_ALLOWED_HOSTS=mcp.tuodominio.it   # più nomi separati da virgola
+```
 
 Caddy (certificato automatico):
 
@@ -177,9 +183,9 @@ curl -i -X POST https://mcp.tuodominio.it/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
 ```
 
-Se la seconda chiamata risponde 4xx con un errore sull'header `Host`, l'SDK MCP sta applicando la
-protezione DNS rebinding: avvia il server con `--host` uguale al nome pubblico oppure fai passare
-al proxy `Host: 127.0.0.1:8000`.
+La seconda chiamata deve rispondere 200. Con `421 Invalid Host header` manca il nome pubblico in
+`FIC_MCP_ALLOWED_HOSTS`; con `403 Invalid Origin header` la richiesta arriva da un'origine web
+diversa da `https://<nome pubblico>`.
 
 **Limiti da conoscere:**
 
@@ -202,6 +208,7 @@ al proxy `Host: 127.0.0.1:8000`.
 | `FIC_SET_ASIDE_PCT` | `48` | % dell'imponibile incassato da accantonare, oltre all'IVA |
 | `FIC_AUDIT_LOG` | `~/.local/state/fic-mcp/audit.jsonl` | Registro scritture, `off` per disattivarlo |
 | `FIC_MCP_HTTP_TOKEN` | — | Bearer obbligatorio in modalità HTTP |
+| `FIC_MCP_ALLOWED_HOSTS` | — | Nomi pubblici ammessi nell'header `Host` dietro reverse proxy |
 
 `fic-mcp tools` mostra i tool che verrebbero esposti con la configurazione corrente
 (`R` lettura, `W` scrittura, `W!` distruttiva o verso terzi).
@@ -294,10 +301,12 @@ pip install -e ".[dev]"
 pytest
 ```
 
-I 18 test girano end-to-end (client MCP in-process → server → finta API FIC): registrazione e
+I test in `tests/test_server.py` girano end-to-end (client MCP in-process → server → finta API FIC): registrazione e
 annotazioni dei tool, sola lettura, retry su 429, rinnovo del token su 401, errori 422 leggibili,
 fattura guidata (rivalsa, ritenuta, scadenza, risoluzione aliquote), invio SdI in due passi,
 conferme sulle eliminazioni, paginazione, analisi, tokenizzazione andata/ritorno, guardie del tool raw.
+`tests/test_cli.py` copre i messaggi sugli errori di configurazione e il controllo dell'header
+`Host` in modalità HTTP.
 
 Struttura: `client.py` (HTTP, retry, quote, refresh), `auth.py` (OAuth2), `privacy.py`
 (tokenizzazione), `audit.py`, `registry.py` (registrazione e filtri dei tool), `tools/` (un modulo

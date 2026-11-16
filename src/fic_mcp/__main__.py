@@ -15,7 +15,25 @@ from .config import Settings
 
 
 def _settings(args: argparse.Namespace) -> Settings:
-    return Settings.from_env(getattr(args, "env_file", None))
+    try:
+        return Settings.from_env(getattr(args, "env_file", None))
+    except ValueError as exc:  # valori non validi nel .env o nell'ambiente
+        raise SystemExit(f"Configurazione non valida: {exc}") from None
+
+
+def _transport_security(settings: Settings):
+    """Host ammessi: localhost come da SDK più i nomi pubblici di FIC_MCP_ALLOWED_HOSTS."""
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    if not settings.allowed_hosts:
+        return None  # comportamento di default dell'SDK
+    hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+    origins = ["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"]
+    for name in settings.allowed_hosts:
+        hosts += [name, f"{name}:*"]  # nginx passa $host senza porta
+        origins += [f"https://{name}", f"https://{name}:*"]
+    return TransportSecuritySettings(enable_dns_rebinding_protection=True,
+                                     allowed_hosts=hosts, allowed_origins=origins)
 
 
 def cmd_serve(args: argparse.Namespace) -> None:
@@ -54,7 +72,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
             await app(scope, receive, send)
         return guarded
 
-    app = server.streamable_http_app(host=args.host)
+    app = server.streamable_http_app(host=args.host, transport_security=_transport_security(settings))
     uvicorn.run(require_bearer(app), host=args.host, port=args.port, log_level="info")
 
 

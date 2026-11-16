@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -32,6 +33,14 @@ def _bool(value: str | None, default: bool) -> bool:
     if value is None or value.strip() == "":
         return default
     return value.strip().lower() in ("1", "true", "yes", "si", "sì", "on")
+
+
+def _num(env: Mapping[str, str], key: str, default: str, kind: type = float):
+    raw = env.get(key, default).strip() or default
+    try:
+        return kind(raw)
+    except ValueError:
+        raise ValueError(f"{key} deve essere un numero, trovato {raw!r}") from None
 
 
 def load_dotenv(path: Path) -> None:
@@ -72,6 +81,7 @@ class Settings:
     audit_log: Path | None = None
     token_file: Path | None = None
     http_token: str | None = None  # bearer richiesto in modalità HTTP
+    allowed_hosts: tuple[str, ...] = ()  # nomi pubblici ammessi nell'header Host (dietro reverse proxy)
     timeout: float = 30.0
     max_retries: int = 4
     extra: dict[str, str] = field(default_factory=dict)
@@ -115,15 +125,16 @@ class Settings:
             refresh_token=env.get("FIC_REFRESH_TOKEN") or None,
             client_id=env.get("FIC_CLIENT_ID") or None,
             client_secret=env.get("FIC_CLIENT_SECRET") or None,
-            company_id=int(company) if company else None,
+            company_id=_num(env, "FIC_COMPANY_ID", company, int) if company else None,
             base_url=env.get("FIC_BASE_URL", "https://api-v2.fattureincloud.it").rstrip("/"),
             read_only=_bool(env.get("FIC_READ_ONLY"), False),
             privacy_mode=privacy,
             toolsets=toolsets,
-            set_aside_pct=float(env.get("FIC_SET_ASIDE_PCT", "48")),
+            set_aside_pct=_num(env, "FIC_SET_ASIDE_PCT", "48"),
             audit_log=audit,
             token_file=token_file,
             http_token=env.get("FIC_MCP_HTTP_TOKEN") or None,
-            timeout=float(env.get("FIC_TIMEOUT", "30")),
-            max_retries=int(env.get("FIC_MAX_RETRIES", "4")),
+            allowed_hosts=tuple(h.strip() for h in env.get("FIC_MCP_ALLOWED_HOSTS", "").split(",") if h.strip()),
+            timeout=_num(env, "FIC_TIMEOUT", "30"),
+            max_retries=_num(env, "FIC_MAX_RETRIES", "4", int),
         )
