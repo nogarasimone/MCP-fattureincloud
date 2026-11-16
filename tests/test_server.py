@@ -204,6 +204,16 @@ def test_privacy_tokenize_roundtrip(tmp_path):
     assert is_error(unknown)
 
 
+def test_privacy_tokenize_analytics(tmp_path):
+    server, _, _, _ = make(tmp_path, privacy_mode="tokenize")
+    for name, args in (("fic_receivables", {"as_of": "2026-11-15"}), ("fic_revenue_summary", {"year": 2026}),
+                       ("fic_expenses_summary", {"year": 2026})):
+        dumped = json.dumps(payload(call(server, name, args)))
+        assert "Rossi Consulting" not in dumped, name
+    row = payload(call(server, "fic_receivables", {"as_of": "2026-11-15"}))["posizioni"][0]
+    assert row["cliente"].startswith("[[NOME_")
+
+
 def test_tokenizer_free_text():
     t = Tokenizer()
     out = t.mask({"items_list": [{"name": "Consulenza", "description": "Rif. mario.rossi@gmail.com IBAN IT60X0542811101000000123456"}]})

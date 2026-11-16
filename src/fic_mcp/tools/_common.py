@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 Page = Annotated[int, Field(ge=1, description="Pagina da leggere (da 1).")]
-PerPage = Annotated[int, Field(ge=1, le=100, description="Elementi per pagina (massimo 100).")]
+PerPage = Annotated[int, Field(ge=5, le=100, description="Elementi per pagina (da 5 a 100, limiti dell'API).")]
 Fieldset = Annotated[Literal["basic", "detailed"] | None,
                      Field(description="'basic' = campi essenziali (default), 'detailed' = oggetto completo.")]
 Fields = Annotated[str | None, Field(description="Elenco di campi separati da virgola da restituire, es. 'id,name,vat_number'.")]

@@ -44,6 +44,8 @@ def cmd_serve(args: argparse.Namespace) -> None:
         settings.read_only = True
     server, reg = build_server(settings)
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s")
+    # httpx registra ogni URL con il filtro q in chiaro (P.IVA, nomi): fuori dai log anche con la privacy attiva
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
     logging.getLogger("fic_mcp").info(
         "fic-mcp %s: %d tool attivi, sola lettura=%s, privacy=%s", __version__, len(reg.registered),
         settings.read_only, settings.privacy_mode)
@@ -98,6 +100,8 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         try:
             user = await client.request("GET", "/user/info", company=False)
             companies = await client.companies()
+            if len(companies) == 1 or settings.company_id:
+                await client.request("GET", "/company/info")  # le quote arrivano solo dalle chiamate per azienda
             print(json.dumps({
                 "utente": ((user or {}).get("data") or {}).get("name"),
                 "aziende": [{"id": c.id, "nome": c.name} for c in companies],

@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from ..registry import Registrar
-from ._common import Confirm, Data, not_confirmed, wrap
+from ._common import Confirm, Data, PerPage, not_confirmed, wrap
 
 COMPANY_INFO = {
     "vat_types": "/info/vat_types",
@@ -120,7 +120,7 @@ def register(reg: Registrar) -> None:
 
     @reg.tool(toolset="issued", title="Email inviate")
     async def fic_list_emails(
-        page: Annotated[int, Field(ge=1)] = 1, per_page: Annotated[int, Field(ge=1, le=100)] = 20,
+        page: Annotated[int, Field(ge=1)] = 1, per_page: PerPage = 20,
         q: Annotated[str | None, Field(description="Filtro FIC (es. \"status = 'sent'\").")] = None,
     ) -> dict[str, Any]:
         """Storico delle email inviate da Fatture in Cloud (documenti, solleciti) con stato di consegna."""

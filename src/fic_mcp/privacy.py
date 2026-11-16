@@ -40,6 +40,8 @@ ALWAYS_FIELDS: dict[str, str] = {
     "contact_person": "NOME",
     "first_name": "NOME",
     "last_name": "NOME",
+    "cliente": "NOME",      # output dei tool di analisi
+    "fornitore": "NOME",
     "default_payment_terms_name": None,  # esplicitamente non sensibile
 }
 

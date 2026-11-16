@@ -1,5 +1,5 @@
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -45,10 +45,12 @@ def register(reg: Registrar) -> None:
 
     @reg.tool(toolset="account", title="Utilizzo del piano")
     async def fic_plan_usage(
-        category: Annotated[str | None, Field(description="Categoria di utilizzo, se richiesta dall'API (es. 'documents').")] = None,
+        category: Annotated[Literal["documents", "clients", "suppliers", "products"] | None,
+                            Field(description="Una sola categoria; se omessa le restituisce tutte.")] = None,
     ) -> dict[str, Any]:
         """Utilizzo del piano Fatture in Cloud (limiti di documenti/anagrafiche del piano sottoscritto)."""
-        return await c.get("/company/plan_usage", category=category)
+        categories = [category] if category else ["documents", "clients", "suppliers", "products"]
+        return {cat: ((await c.get("/company/plan_usage", category=cat)) or {}).get("data") for cat in categories}
 
     @reg.tool(toolset="account", title="Quote API e stato server")
     async def fic_server_status() -> dict[str, Any]:
