@@ -212,3 +212,7 @@ Prima dell'uso in scrittura, in sola lettura:
 3. `fic_create_invoice` con `dry_run=true` su un caso reale: confronta i totali con quelli che
    vedi in FIC;
 4. una prima fattura vera creata in bozza e controllata a video prima di `fic_send_e_invoice`.
+
+## Licenza
+
+Rilasciato con licenza [MIT](LICENSE).
